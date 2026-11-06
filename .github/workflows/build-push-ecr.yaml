@@ -1,0 +1,40 @@
+name: Build and push python-nginx base image to ECR
+
+# Manual only. Requires repo secrets AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+# for an IAM principal that can push to the ECR repository below.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Which Dockerfile directory to build (python-nginx/<version>)"
+        type: choice
+        options: ["3.13", "3.9"]
+        default: "3.13"
+      tag:
+        description: "ECR image tag. Does NOT default to 'latest' so the tag openshift currently uses is not overwritten."
+        required: true
+        default: "3.13"
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 973342646972.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: openshift-pcdc/python-nginx
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: python-nginx/${{ inputs.version }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ inputs.tag }}
